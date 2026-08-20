@@ -1,0 +1,4 @@
+interface:
+  display_name: "Remote Login Relay Free"
+  short_description: "Self-host one-tab phone handoff for human login steps"
+  default_prompt: "Use $remote-login-relay-free to let me complete the sensitive login step in one exact Chrome tab from my phone."
