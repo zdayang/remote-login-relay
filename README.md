@@ -1,5 +1,7 @@
 # Remote Login Relay
 
+![Remote Login Relay: when an AI agent is blocked by login while you are away, finish the login from your phone](assets/how-it-works.png)
+
 Remote Login Relay lets you finish a human-only browser login from your phone when a local AI agent is working on your Mac.
 
 The agent hands off one exact Chrome tab for a short time. You enter the password, verification code, QR confirmation, or consent decision yourself. The agent does not receive your cookies or credentials, and the relay does not expose your whole desktop.
@@ -18,8 +20,6 @@ Local agents such as Codex and Claude Code can carry a browser workflow a long w
 The usual alternatives are awkward or too broad. You can abandon the workflow until you return to the Mac, give the agent sensitive credentials, or expose the entire desktop through a general remote-access tool. Remote Login Relay creates a narrower handoff: one selected tab, one owner, one temporary session.
 
 ## How it works
-
-![Remote Login Relay: blocked login, one-tab handoff, email link, phone login, and verified return](assets/how-it-works.png)
 
 1. The local Skill matches a specific open Chrome tab by URL or title. It stops if zero or multiple tabs match.
 2. A local gateway connects to that tab through Chrome DevTools Protocol.
