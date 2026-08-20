@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -eu
 
-APP_ROOT="${REMOTE_RELAY_FREE_HOME:-$HOME/Library/Application Support/ToolArks/RemoteLoginRelayFree}"
+APP_ROOT="${REMOTE_RELAY_SELF_HOSTED_HOME:-$HOME/Library/Application Support/ToolArks/RemoteLoginRelay}"
 PUBLIC_URL=""
 TUNNEL_CONFIG=""
 TUNNEL_NAME=""

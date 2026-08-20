@@ -1,9 +1,9 @@
 ---
-name: remote-login-relay-free
+name: remote-login-relay
 description: Self-host a temporary phone handoff for one exact Chrome tab when a local AI agent is blocked by a QR code, verification code, phone-number prompt, or third-party consent screen.
 ---
 
-# Remote Login Relay Free
+# Remote Login Relay
 
 Use this Skill only to let the Mac owner personally complete a sensitive step in one already-open Chrome tab.
 
@@ -18,10 +18,10 @@ Use this Skill only to let the Mac owner personally complete a sensitive step in
 
 ## Run
 
-1. Confirm the Free package has been configured with the user's own HTTPS hostname and Cloudflare tunnel.
+1. Confirm the self-hosted package has been configured with the user's own HTTPS hostname and Cloudflare tunnel.
 2. Run `scripts/start.sh 30 '<specific URL or title fragment>'`.
 3. Give the user the final link printed by the command.
 4. After the user reports completion, read the original Chrome tab and confirm that it left the login screen.
 5. Run `scripts/stop.sh`, then `scripts/status.sh`; report the shutdown result.
 
-This Free edition is self-hosted. ToolArks does not provide a domain, email delivery, relay availability, or installation support.
+This edition is self-hosted. ToolArks does not provide a domain, email delivery, relay availability, or installation support.

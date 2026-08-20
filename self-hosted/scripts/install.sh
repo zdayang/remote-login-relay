@@ -4,8 +4,8 @@ set -eu
 PACKAGE_ROOT="${0:A:h:h}"
 TARGET="${1:-codex}"
 case "$TARGET" in
-  codex) SKILL_ROOT="${CODEX_HOME:-$HOME/.codex}/skills/remote-login-relay-free" ;;
-  claude) SKILL_ROOT="$HOME/.claude/skills/remote-login-relay-free" ;;
+  codex) SKILL_ROOT="${CODEX_HOME:-$HOME/.codex}/skills/remote-login-relay" ;;
+  claude) SKILL_ROOT="$HOME/.claude/skills/remote-login-relay" ;;
   *) print -u2 "Usage: $0 codex|claude"; exit 2 ;;
 esac
 
@@ -19,4 +19,4 @@ ditto "$PACKAGE_ROOT/agents" "$SKILL_ROOT/agents"
 mkdir -p "$SKILL_ROOT/package"
 ditto "$PACKAGE_ROOT" "$SKILL_ROOT/package"
 ditto "$PACKAGE_ROOT/../core" "$SKILL_ROOT/core"
-print "Installed Remote Login Relay Free for $TARGET at $SKILL_ROOT"
+print "Installed Remote Login Relay for $TARGET at $SKILL_ROOT"

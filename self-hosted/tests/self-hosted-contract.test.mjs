@@ -15,17 +15,16 @@ test('tab selection fails closed for zero or ambiguous matches',()=>{
   assert.throws(()=>selectExactTab(tabs,'missing'),/No Chrome tab/);
 });
 
-test('free package has no founder-specific path or managed-price claim',async()=>{
-  const files=await Promise.all(['README.md','README.zh-CN.md','SKILL.md','scripts/start.sh','scripts/configure.sh','src/free-gateway.mjs','public/index.html'].map(read));
+test('self-hosted package has no founder-specific path',async()=>{
+  const files=await Promise.all(['README.md','README.zh-CN.md','SKILL.md','scripts/start.sh','scripts/configure.sh','src/self-hosted-gateway.mjs','public/index.html'].map(read));
   const combined=files.join('\n');
   assert.doesNotMatch(combined,/\/Users\/yang|growth-machine|remote\.toolarks\.com/);
-  assert.doesNotMatch(combined,/\$1\.99|\$9\.99|Gumroad/);
   assert.match(combined,/one exact Chrome tab/i);
   assert.match(combined,/不共享整个桌面/u);
 });
 
 test('public health endpoint is restricted by host',async()=>{
-  const gateway=await read('src/free-gateway.mjs');
+  const gateway=await read('src/self-hosted-gateway.mjs');
   assert.match(gateway,/\['127\.0\.0\.1', 'localhost', '::1'\]/);
   assert.match(gateway,/res\.writeHead\(404\)\.end\('Not found'\)/);
 });

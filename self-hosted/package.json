@@ -1,11 +1,11 @@
 {
-  "name": "remote-login-relay-free",
+  "name": "remote-login-relay",
   "version": "0.1.0",
   "description": "Open-source, self-hosted handoff of one Chrome tab to your phone.",
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node --test tests/free-contract.test.mjs",
+    "test": "node --test tests/self-hosted-contract.test.mjs",
     "test:e2e": "node --test tests/chrome-cdp.e2e.test.mjs"
   },
   "dependencies": {

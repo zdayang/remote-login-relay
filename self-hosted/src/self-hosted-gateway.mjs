@@ -81,4 +81,4 @@ wss.on('connection', async (client) => {
 
 const timer = setTimeout(() => server.close(), Math.min(expiresSeconds, 7200) * 1000);
 timer.unref();
-server.listen(port, '127.0.0.1', () => console.log(`Remote Login Relay Free listening on 127.0.0.1:${port}`));
+server.listen(port, '127.0.0.1', () => console.log(`Remote Login Relay listening on 127.0.0.1:${port}`));

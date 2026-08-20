@@ -2,15 +2,15 @@
 set -eu
 
 PACKAGE_ROOT="${0:A:h:h}"
-APP_ROOT="${REMOTE_RELAY_FREE_HOME:-$HOME/Library/Application Support/ToolArks/RemoteLoginRelayFree}"
+APP_ROOT="${REMOTE_RELAY_SELF_HOSTED_HOME:-$HOME/Library/Application Support/ToolArks/RemoteLoginRelay}"
 RUNTIME_DIR="$APP_ROOT/runtime"
 CONFIG_FILE="$APP_ROOT/config.env"
 DURATION_MINUTES="${1:-30}"
 TARGET_MATCH="${2:-}"
 CDP_HTTP="${REMOTE_RELAY_CDP_HTTP:-http://127.0.0.1:9222}"
 PORT="${REMOTE_RELAY_PORT:-6081}"
-GATEWAY_LABEL="${REMOTE_RELAY_GATEWAY_LABEL:-com.toolarks.remote-login-relay-free.gateway}"
-TUNNEL_LABEL="${REMOTE_RELAY_TUNNEL_LABEL:-com.toolarks.remote-login-relay-free.tunnel}"
+GATEWAY_LABEL="${REMOTE_RELAY_GATEWAY_LABEL:-com.toolarks.remote-login-relay.gateway}"
+TUNNEL_LABEL="${REMOTE_RELAY_TUNNEL_LABEL:-com.toolarks.remote-login-relay.tunnel}"
 
 [[ -f "$CONFIG_FILE" ]] || { print -u2 "Run scripts/configure.sh first."; exit 1; }
 source "$CONFIG_FILE"
@@ -22,10 +22,10 @@ for command in node npm cloudflared openssl curl; do
 done
 [[ -f "$REMOTE_RELAY_TUNNEL_CONFIG" ]] || { print -u2 "Tunnel config not found: $REMOTE_RELAY_TUNNEL_CONFIG"; exit 1; }
 
-mkdir -p "$RUNTIME_DIR" "$APP_ROOT/free/src" "$APP_ROOT/free/public"
+mkdir -p "$RUNTIME_DIR" "$APP_ROOT/self-hosted/src" "$APP_ROOT/self-hosted/public"
 chmod 700 "$APP_ROOT" "$RUNTIME_DIR"
-ditto "$PACKAGE_ROOT/src/free-gateway.mjs" "$APP_ROOT/free/src/free-gateway.mjs"
-ditto "$PACKAGE_ROOT/public/index.html" "$APP_ROOT/free/public/index.html"
+ditto "$PACKAGE_ROOT/src/self-hosted-gateway.mjs" "$APP_ROOT/self-hosted/src/self-hosted-gateway.mjs"
+ditto "$PACKAGE_ROOT/public/index.html" "$APP_ROOT/self-hosted/public/index.html"
 ditto "$PACKAGE_ROOT/../core" "$APP_ROOT/core"
 if [[ ! -d "$APP_ROOT/node_modules/ws" ]]; then
   npm install --prefix "$APP_ROOT" --no-audit --no-fund ws@8.18.3 >/dev/null
@@ -42,7 +42,7 @@ TARGET_ID="$(print -r -- "$TARGET_JSON" | /usr/bin/python3 -c 'import json,sys; 
 
 launchctl submit -l "$GATEWAY_LABEL" -o "$RUNTIME_DIR/gateway.log" -e "$RUNTIME_DIR/gateway.log" -- \
   /usr/bin/env REMOTE_RELAY_TOKEN="$TOKEN" REMOTE_RELAY_TARGET_ID="$TARGET_ID" REMOTE_RELAY_CDP_HTTP="$CDP_HTTP" REMOTE_RELAY_PORT="$PORT" REMOTE_RELAY_EXPIRES_SECONDS="$DURATION_SECONDS" NODE_PATH="$APP_ROOT/node_modules" \
-  "$(command -v node)" "$APP_ROOT/free/src/free-gateway.mjs"
+  "$(command -v node)" "$APP_ROOT/self-hosted/src/self-hosted-gateway.mjs"
 
 for attempt in {1..60}; do
   curl --noproxy '*' --connect-timeout 1 --max-time 1 -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break
@@ -53,5 +53,5 @@ curl --noproxy '*' --connect-timeout 1 --max-time 2 -fsS "http://127.0.0.1:$PORT
 launchctl submit -l "$TUNNEL_LABEL" -o "$RUNTIME_DIR/tunnel.log" -e "$RUNTIME_DIR/tunnel.log" -- \
   "$(command -v node)" "$PACKAGE_ROOT/scripts/run-with-timeout.mjs" "$DURATION_SECONDS" "$(command -v cloudflared)" tunnel --config "$REMOTE_RELAY_TUNNEL_CONFIG" run "$REMOTE_RELAY_TUNNEL_NAME"
 
-print "Remote Login Relay Free is ready for $DURATION_MINUTES minutes:"
+print "Remote Login Relay is ready for $DURATION_MINUTES minutes:"
 print "${REMOTE_RELAY_PUBLIC_URL%/}/#token=$TOKEN"
