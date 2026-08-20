@@ -19,6 +19,8 @@ The usual alternatives are awkward or too broad. You can abandon the workflow un
 
 ## How it works
 
+![Remote Login Relay: blocked login, one-tab handoff, email link, phone login, and verified return](assets/how-it-works.png)
+
 1. The local Skill matches a specific open Chrome tab by URL or title. It stops if zero or multiple tabs match.
 2. A local gateway connects to that tab through Chrome DevTools Protocol.
 3. A random, time-limited phone link is created. Sessions expire after 30 minutes by default.
@@ -52,7 +54,7 @@ Both packages are one-time credit purchases. There is no subscription or automat
 | Package | Price | Successful new sessions | Validity | Best for |
 |---|---:|---:|---:|---|
 | Starter | $1.99 | 10 | 1 year | Occasional login blocks |
-| Standard | $10 | 500 | 3 years | Frequent agent-driven browser work |
+| Standard | $10 | 500 | 2 years | Frequent agent-driven browser work |
 
 A credit is consumed only when a phone first connects to a new session. Creating a link, an email-delivery failure, or reconnecting to the same unexpired session does not consume another credit.
 
@@ -78,6 +80,7 @@ Read [SECURITY.md](SECURITY.md) before exposing a self-hosted hostname.
 
 ```text
 remote-login-relay/
+├── assets/           Product workflow illustration
 ├── core/             Shared one-tab Chrome controller
 ├── self-hosted/      MIT-licensed Skill, gateway, mobile UI, and setup scripts
 └── SECURITY.md

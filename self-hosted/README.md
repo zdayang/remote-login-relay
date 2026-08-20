@@ -4,6 +4,8 @@ Use your phone to complete a human-only login step in one exact Chrome tab while
 
 This open-source edition runs on infrastructure you control. You provide a Cloudflare account, a domain managed by Cloudflare, a named Cloudflare Tunnel, and your own way to deliver the temporary link to your phone. ToolArks does not host this relay or receive its browser frames.
 
+![Remote Login Relay workflow: one blocked tab, one private email link, one phone login, then done](../assets/how-it-works.png)
+
 ## Before you begin
 
 You need:
@@ -195,7 +197,7 @@ The URL fragment contains a random bearer token. Browsers do not send URL fragme
 | Package | Price | Sessions | Validity |
 |---|---:|---:|---:|
 | Starter | $1.99 | 10 | 1 year |
-| Standard | $10 | 500 | 3 years |
+| Standard | $10 | 500 | 2 years |
 
 Both are one-time purchases with no subscription or automatic renewal. Support is available at `support@toolarks.com`; session notifications come from the send-only address `relay@notify.toolarks.com`.
 
