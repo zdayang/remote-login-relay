@@ -10,10 +10,10 @@ print "The relay needs two things: a public HTTPS path and an email sender."
 print "Do you have a domain that is already managed by Cloudflare?"
 print "  1) Yes — use a stable hostname and a named Cloudflare Tunnel"
 print "  2) No — use a temporary Cloudflare Quick Tunnel (random URL per run)"
-print "  3) Too much setup — I want the hosted version"
+print "  3) Too much setup — I want ToolArks Cloud"
 read -r "ROUTE?Choose 1, 2, or 3 [1/2/3]: "
 if [[ "$ROUTE" == 3 ]]; then
-  print "The hosted version removes domain, tunnel, and email setup: $HOSTED_URL"
+  print "ToolArks Cloud removes domain, tunnel, and email setup: $HOSTED_URL"
   exit 0
 fi
 [[ "$ROUTE" == 1 || "$ROUTE" == 2 ]] || { print -u2 "Please choose 1, 2, or 3."; exit 2; }

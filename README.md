@@ -1,6 +1,6 @@
 <div align="center">
 
-# ToolArks Remote Login Relay
+# [ToolArks](https://toolarks.com) Remote Login Relay
 
 **Let your AI agent continue — even when you are away from the Mac.**
 
@@ -61,6 +61,19 @@ Passwords, verification codes, cookies, browser storage, and session tokens are 
 | **Cloudflare Quick Tunnel** | A quick trial | Temporary `trycloudflare.com` URL | The address changes on every run |
 
 Both paths keep the gateway on your Mac and expose only the selected Chrome tab. The guided wizard asks which path fits before it asks for email settings.
+
+## Prefer a managed setup?
+
+Self-hosting is the open-source route when you want to keep the gateway, domain, tunnel, and email configuration under your control. If you want to start without configuring those pieces, use **[ToolArks Remote Login Relay Cloud](https://toolarks.com/en/remote-login-relay)**:
+
+| | Self-hosted | ToolArks Cloud |
+| --- | --- | --- |
+| Domain and tunnel | You configure them | Operated by ToolArks |
+| Email delivery | Your SMTP mailbox | Included in the service |
+| Browser relay | Runs on your Mac | Runs through the ToolArks service |
+| Setup | Install and configure | Open the product page and start |
+
+Cloud is a separately operated service; its implementation is not included in this repository. See the [ToolArks Remote Login Relay product page](https://toolarks.com/en/remote-login-relay) for the current service details and support options.
 
 ## Quick start
 
@@ -170,3 +183,5 @@ remote-login-relay/
 ## License
 
 The self-hosted edition is licensed under the [MIT License](self-hosted/LICENSE).
+
+Built by [ToolArks](https://toolarks.com) · [Remote Login Relay](https://toolarks.com/en/remote-login-relay)

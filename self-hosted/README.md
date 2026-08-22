@@ -2,6 +2,8 @@
 
 An AI agent can operate a browser while you are away from the computer. When it reaches a human-only login step, this package lets you finish **that one Chrome page from your phone**. The link is sent by a ToolArks-branded email and expires with the handoff.
 
+> Prefer not to configure a domain, tunnel, or SMTP mailbox? [ToolArks Remote Login Relay Cloud](https://toolarks.com/en/remote-login-relay) provides a separately operated managed path. This repository contains the self-hosted edition only.
+
 ![Remote Login Relay workflow: an agent is blocked by login, the owner opens a branded email on a phone, and the same Chrome tab continues](../assets/how-it-works.png)
 
 ## Choose the least-friction setup
@@ -16,7 +18,7 @@ It asks three practical questions instead of leaving you with unexplained enviro
 
 1. **Do you have a domain managed by Cloudflare?** Choose the stable hostname route. You create a named Cloudflare Tunnel and point `relay.yourdomain.com` to the local gateway.
 2. **Do you have a Cloudflare account but no domain?** Choose Quick Tunnel. It is a temporary development route, does not require a domain (or even an account login), and creates a random `trycloudflare.com` URL for each run. It is not a permanent address.
-3. **Is this too much setup?** The wizard shows the ToolArks hosted option, which removes domain, tunnel, and sender-email setup: [use the hosted version](https://toolarks.com/en/remote-login-relay).
+3. **Is this too much setup?** The wizard shows the ToolArks Cloud option, which removes domain, tunnel, and sender-email setup: [use ToolArks Remote Login Relay Cloud](https://toolarks.com/en/remote-login-relay).
 
 The same wizard configures delivery. Choose Gmail/Google Workspace, Outlook/Microsoft 365, or another SMTP provider. It gives the right host and security defaults, asks for the sender and phone notification address, and stores an SMTP App Password in macOS Keychain. The password is never written to `config.env`, printed, or sent to ToolArks.
 

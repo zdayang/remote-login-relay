@@ -2,6 +2,8 @@
 
 当 AI 在电脑上的浏览器操作遇到必须由人完成的登录时，你可以用手机接管**这一张 Chrome 页面**完成登录。链接通过带有 ToolArks 品牌的邮件发送，交接结束后自动失效。
 
+> 不想配置域名、Tunnel 和发件邮箱？可以使用 [ToolArks Remote Login Relay Cloud](https://toolarks.com/zh/remote-login-relay) 托管方案。本仓库只包含自托管版本，Cloud 版本由 ToolArks 独立运营。
+
 ![Remote Login Relay 工作流：AI 被登录阻塞，用户在手机邮件中打开链接完成登录，原 Chrome 页面继续](../assets/how-it-works.png)
 
 ## 先走向导，不要手工拼配置
@@ -16,7 +18,7 @@
 
 1. **你有由 Cloudflare 管理 DNS 的域名吗？** 有的话，使用稳定域名和命名的 Cloudflare Tunnel。
 2. **你没有域名，但有 Cloudflare 账号吗？** 可以使用临时的 Quick Tunnel。它不需要域名（甚至不要求登录账号），每次生成一个随机的 `trycloudflare.com` 地址，适合测试，不是固定生产地址。
-3. **太麻烦了，想直接使用？** 向导会给出 ToolArks 托管版入口；托管版替你处理域名、隧道和发件邮箱配置：[使用托管版](https://toolarks.com/zh/remote-login-relay)。不会未经同意替你购买或创建账号。
+3. **太麻烦了，想直接使用？** 向导会给出 ToolArks Cloud 入口；Cloud 版替你处理域名、隧道和发件邮箱配置：[使用 ToolArks Remote Login Relay Cloud](https://toolarks.com/zh/remote-login-relay)。不会未经同意替你购买或创建账号。
 
 然后向导会配置发件邮箱：Gmail/Google Workspace、Outlook/Microsoft 365 或自定义 SMTP。它会给出正确的服务器和安全方式，要求你填写发件地址与手机通知地址，并将 SMTP 应用专用密码保存到 macOS 钥匙串。密码不会写入 `config.env`，也不会打印或发送给 ToolArks。
 
