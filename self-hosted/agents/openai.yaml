@@ -1,4 +1,4 @@
 interface:
   display_name: "Remote Login Relay"
-  short_description: "Self-host one-tab phone handoff for human login steps"
-  default_prompt: "Use $remote-login-relay to let me complete the sensitive login step in one exact Chrome tab from my phone."
+  short_description: "Hand a blocked Chrome login page to your phone"
+  default_prompt: "When browser work reaches a human-only login step, use $remote-login-relay; guide me through email and tunnel setup if needed, then send a ToolArks link for that exact Chrome page to my phone."

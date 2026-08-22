@@ -1,41 +1,50 @@
-# Remote Login Relay — 自托管版
+# ToolArks Remote Login Relay — 自托管版
 
-当本地 AI Agent 在 Mac 上遇到必须由人完成的登录步骤时，你可以用手机临时接管一个精确指定的 Chrome 标签页。
+当 AI 在电脑上的浏览器操作遇到必须由人完成的登录时，你可以用手机接管**这一张 Chrome 页面**完成登录。链接通过带有 ToolArks 品牌的邮件发送，交接结束后自动失效。
 
-这是 MIT 开源自托管版。你需要自行准备 Cloudflare 账号、由 Cloudflare 管理 DNS 的域名、Cloudflare Named Tunnel，以及把临时链接发到手机的私密渠道。ToolArks 不托管该中继，也不接收浏览器画面。
+![Remote Login Relay 工作流：AI 被登录阻塞，用户在手机邮件中打开链接完成登录，原 Chrome 页面继续](../assets/how-it-works.png)
 
-它只交接一个精确匹配的 Chrome 标签页，不共享整个桌面，也不把密码、验证码、Cookie 或会话令牌导出给 AI。
+## 先走向导，不要手工拼配置
 
-![远程登录接力流程：遇到登录阻塞，只交接一个标签页，通过邮件发送限时链接，在手机上亲自登录，然后完成](../assets/how-it-works.png)
-
-## 使用前准备
-
-- macOS 13 或更高版本
-- Node.js 20 或更高版本
-- Google Chrome 或 Chromium
-- `cloudflared`
-- Cloudflare 账号和由 Cloudflare 管理 DNS 的域名
-- 如需使用 Skill，还需 Codex 或 Claude Code
-
-下面的示例使用隧道名 `remote-login-relay`、公网域名 `relay.example.com`、本机网关 `http://127.0.0.1:6081`。请替换为你自己的值。
-
-## 1. 安装依赖
-
-使用你熟悉的包管理器安装 Node.js 20+。macOS 可以通过 Homebrew 安装 `cloudflared`：
+第一次运行：
 
 ```bash
-brew install cloudflared
+./scripts/setup.sh
 ```
 
-在当前目录安装网关依赖：
+向导会先问三个问题：
+
+1. **你有由 Cloudflare 管理 DNS 的域名吗？** 有的话，使用稳定域名和命名的 Cloudflare Tunnel。
+2. **你没有域名，但有 Cloudflare 账号吗？** 可以使用免费的 Quick Tunnel。它不需要域名（甚至不要求登录账号），每次生成一个随机的 `trycloudflare.com` 地址，适合测试，不是固定生产地址。
+3. **太麻烦了，想直接使用？** 向导会给出 ToolArks 托管版入口；托管版替你处理域名、隧道和发件邮箱配置：[使用托管版](https://toolarks.com/zh/remote-login-relay)。不会未经同意替你购买或创建账号。
+
+然后向导会配置发件邮箱：Gmail/Google Workspace、Outlook/Microsoft 365 或自定义 SMTP。它会给出正确的服务器和安全方式，要求你填写发件地址与手机通知地址，并将 SMTP 应用专用密码保存到 macOS 钥匙串。密码不会写入 `config.env`，也不会打印或发送给 ToolArks。
+
+真正登录前先测试邮件：
+
+```bash
+./scripts/test-email.sh
+```
+
+你应该收到主题为 `ToolArks · self-hosted email test` 的邮件。收不到时先修复邮箱配置，不要直接开始登录。Gmail 必须使用 Google 的应用专用密码，不能使用普通登录密码；Microsoft 365 可能需要为邮箱启用 SMTP AUTH。
+
+## 环境要求
+
+- macOS 13 或更新版本；
+- Node.js 20 或更新版本；
+- Google Chrome 或 Chromium；
+- `cloudflared`（可用 `brew install cloudflared` 安装）；
+- 能向通知地址发信的 SMTP 邮箱；
+- 如果要使用随附 Skill，需要 Codex 或 Claude Code。
+
+## 安装并准备 Chrome
 
 ```bash
 npm install
+./scripts/install.sh codex       # 或：./scripts/install.sh claude
 ```
 
-## 2. 启动隔离的 Chrome 配置
-
-Chrome 136 及以后版本使用 `--remote-debugging-port` 时，必须同时指定非默认用户数据目录。为 AI 浏览器任务启动一个独立 Chrome 配置：
+Chrome 136 及更新版本在开启远程调试时需要单独的用户目录。请使用专用配置目录：
 
 ```bash
 open -na "Google Chrome" --args \
@@ -43,15 +52,15 @@ open -na "Google Chrome" --args \
   --user-data-dir="$HOME/Library/Application Support/ToolArks/RemoteLoginRelayChrome"
 ```
 
-在这个 Chrome 配置中登录你需要的网站。不要把 `9222` 端口发布到局域网或公网。
-
-检查 Chrome 是否就绪：
+9222 端口必须只监听本机。用这个配置登录你平时要使用的网站，然后检查：
 
 ```bash
 curl --noproxy '*' http://127.0.0.1:9222/json/version
 ```
 
-## 3. 创建 Cloudflare 本地管理隧道
+## 稳定域名方案：域名 + 命名 Tunnel
+
+如果你在向导中选择稳定域名方案，只需创建一次 Tunnel：
 
 ```bash
 cloudflared tunnel login
@@ -59,9 +68,7 @@ cloudflared tunnel create remote-login-relay
 cloudflared tunnel route dns remote-login-relay relay.example.com
 ```
 
-创建命令会输出隧道 UUID，并在 `~/.cloudflared/` 下生成凭据 JSON 文件。
-
-新建 `~/.cloudflared/remote-login-relay.yml`：
+创建 `~/.cloudflared/remote-login-relay.yml`：
 
 ```yaml
 tunnel: YOUR_TUNNEL_UUID
@@ -73,118 +80,47 @@ ingress:
   - service: http_status:404
 ```
 
-验证配置：
+向导会记录域名、YAML 路径和 Tunnel 名称。Tunnel 只在一次交接期间运行，不会安装成常驻服务。
 
-```bash
-cloudflared tunnel --config "$HOME/.cloudflared/remote-login-relay.yml" ingress validate
-```
+## 开始一次手机交接
 
-产品脚本只会在交接会话期间启动隧道。不建议把这个隧道安装为永久运行的系统服务。
-
-## 4. 配置 Remote Login Relay
-
-```bash
-./scripts/configure.sh \
-  --public-url https://relay.example.com \
-  --tunnel-config "$HOME/.cloudflared/remote-login-relay.yml" \
-  --tunnel-name remote-login-relay
-```
-
-脚本会以仅当前用户可读的权限保存域名和本机路径，不会把 Cloudflare 凭据复制到产品包。
-
-## 5. 安装 Skill
-
-Codex：
-
-```bash
-./scripts/install.sh codex
-```
-
-Claude Code：
-
-```bash
-./scripts/install.sh claude
-```
-
-安装后的 Skill 名称为 `remote-login-relay`。
-
-## 6. 发起一次手机交接
-
-在隔离的 Chrome 配置中打开目标登录页，然后使用能且只能匹配一个标签页的 URL 或标题片段：
+先在专用 Chrome 中打开需要登录的页面，再用足够具体的 URL 或标题片段定位唯一标签页：
 
 ```bash
 ./scripts/start.sh 30 'accounts.example.com/login'
 ```
 
-命令会输出一条以 `#token=...` 结尾的完整 URL。请用你自己控制的私密渠道把它发到手机，再在手机浏览器中完成登录。
+命令会拒绝“找不到”或“匹配多个”的情况，然后启动本地网关、命名 Tunnel 或 Quick Tunnel，检查公网入口，并把完整临时链接发送到 `REMOTE_RELAY_NOTIFY_TO`。正常流程不会让你把密码或验证码粘贴到聊天里。
 
-如果没有匹配项，或者匹配到多个标签页，程序会拒绝启动。请改用更精确的匹配片段。
-
-## 7. 停止并检查
+在手机上打开 ToolArks 邮件并完成登录。确认电脑原页面已经离开登录界面后：
 
 ```bash
 ./scripts/stop.sh
 ./scripts/status.sh
 ```
 
-停止中继不会清除网站在 Chrome 中的登录状态。
+停止 Relay 不会清除网站已经建立的登录状态。
 
-## 与 AI Agent 配合使用
+## Skill 如何工作
 
-当 Agent 遇到必须由你处理的登录步骤时，让它使用 `$remote-login-relay`。Skill 会要求 Agent：
+当 AI 遇到必须由人完成的登录步骤时，让它调用 `$remote-login-relay`。Skill 会：
 
-1. 只选择当前受阻的精确标签页；
-2. 创建默认 30 分钟的交接；
-3. 只把完整临时链接交给你；
-4. 确认原标签页已离开登录页；
-5. 立即关闭网关和隧道。
+1. 首次使用时引导域名、Cloudflare 和发件邮箱配置；
+2. 在真实交接前先验证邮件发送；
+3. 只选择一张准确的登录标签页；
+4. 发送带 ToolArks 品牌的手机链接；
+5. 验证原页面状态并停止 Relay。
 
-Agent 不应要求你在聊天中粘贴密码、验证码、Cookie 或会话令牌。
+Skill 不会读取或索要浏览器密码、Cookie、验证码或会话令牌。
 
-## 常见问题
+## 安全边界和限制
 
-### 无法访问 Chrome 调试端点
+链接片段里有随机控制令牌。收到完整链接的人可以在它过期或 Relay 停止前控制这张 Chrome 页面。它只共享一张准确的标签页，不共享整个桌面。不要转发、公开发布链接，也不要把 Chrome 调试端口暴露到局域网或公网。请使用专用 Chrome 配置和较短会话。
 
-确认 Chrome 同时带有 `--remote-debugging-port=9222` 和非默认 `--user-data-dir` 参数，然后运行：
+Quick Tunnel 是临时方案：每次地址都会变化，Cloudflare 不把它承诺为稳定生产域名。需要固定地址时，必须使用自己的域名和命名 Tunnel。自托管版运行在你的 Mac 上；ToolArks 不接收浏览器画面，也不会获得你的 SMTP 凭据。
 
-```bash
-curl --noproxy '*' http://127.0.0.1:9222/json/list
-```
+更多安全说明见 [SECURITY.md](../SECURITY.md) 和 [SKILL.md](SKILL.md)。
 
-### 公网链接无法打开
+## 许可证
 
-```bash
-cloudflared tunnel info remote-login-relay
-./scripts/status.sh
-```
-
-确认隧道把精确域名指向 `http://127.0.0.1:6081`，并以 `http_status:404` 作为最后的通配规则。
-
-### Mac 休眠或断网
-
-中继无法工作。唤醒 Mac、恢复网络，然后创建新会话。
-
-## 安全边界
-
-链接的 URL Fragment 中包含随机临时控制令牌。拿到完整链接的人，在链接过期或网关关闭前都可以控制所选标签页。
-
-- 不要转发或公开完整链接。
-- 不要把 Chrome 调试端口暴露到局域网或公网。
-- 保持较短的会话时间，使用后立即关闭。
-- 使用独立 Chrome 配置，不要使用 Chrome 默认配置。
-- 使用前阅读 [SECURITY.md](../SECURITY.md)。
-
-## 不想自己处理域名和隧道？
-
-[Remote Login Relay Cloud](https://toolarks.com/zh/remote-login-relay) 是 ToolArks 的托管云服务。ToolArks 负责公网域名、加密中继、邮件发送、购买验证、次数计量和客户支持。
-
-| 次数包 | 价格 | 成功新会话 | 有效期 |
-|---|---:|---:|---:|
-| 入门包 | $1.99 | 10 | 1 年 |
-| 标准包 | $10 | 500 | 2 年 |
-
-两者都是一次性购买，没有订阅或自动续费。支持邮箱为 `support@toolarks.com`；会话通知由只发不收的 `relay@notify.toolarks.com` 发送。
-
-## 开源许可
-
-MIT，详见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。

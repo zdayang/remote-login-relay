@@ -13,6 +13,11 @@ for command in node npm cloudflared openssl curl; do
   command -v "$command" >/dev/null || { print -u2 "Missing dependency: $command"; exit 1; }
 done
 
+if [[ ! -d "$PACKAGE_ROOT/node_modules/ws" || ! -d "$PACKAGE_ROOT/node_modules/nodemailer" ]]; then
+  print "Installing the self-hosted gateway dependencies..."
+  npm install --prefix "$PACKAGE_ROOT" --no-audit --no-fund
+fi
+
 mkdir -p "$SKILL_ROOT"
 ditto "$PACKAGE_ROOT/SKILL.md" "$SKILL_ROOT/SKILL.md"
 ditto "$PACKAGE_ROOT/agents" "$SKILL_ROOT/agents"

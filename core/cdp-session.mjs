@@ -30,7 +30,7 @@ export class CDPSession {
   }
 
   async connect() {
-    if (!this.target?.webSocketDebuggerUrl) throw new Error('The selected Chrome tab is no longer available.');
+    if (!this.target?.webSocketDebuggerUrl) throw new Error('The Chrome page that needs login is no longer available.');
     this.socket = new this.WebSocketImpl(this.target.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
       this.socket.once('open', resolve);
@@ -44,7 +44,10 @@ export class CDPSession {
       await this.call('Emulation.setDeviceMetricsOverride', {
         width: 780,
         height: 1400,
-        deviceScaleFactor: 1,
+        // Keep the same CSS viewport so websites retain their mobile layout,
+        // but capture at 2x pixels so the phone viewer can zoom without
+        // turning the page into a visibly enlarged thumbnail.
+        deviceScaleFactor: 2,
         mobile: true,
         screenWidth: 780,
         screenHeight: 1400,
@@ -52,8 +55,21 @@ export class CDPSession {
     }
     await this.call('Page.bringToFront');
     await this.call('Page.startScreencast', {
-      format: 'jpeg', quality: 95, maxWidth: 1920, maxHeight: 2200, everyNthFrame: 1,
+      // Keep the 2x source pixels for phone zoom, but avoid producing a
+      // saturated 60fps stream.  The forwarder also coalesces any frames
+      // generated between sends so input messages stay responsive.
+      format: 'jpeg', quality: 92, maxWidth: 2400, maxHeight: 3200, everyNthFrame: 2,
     });
+    // Chrome may not emit a screencast frame until the page changes. Capture
+    // the current page once so a freshly opened phone link never waits for a
+    // reload or a user action before showing the login screen.
+    try {
+      const initial = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: 92, fromSurface: true});
+      this.onFrame?.({
+        data: initial.data,
+        metadata: {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1},
+      });
+    } catch {}
     return this.target;
   }
 
@@ -86,6 +102,7 @@ export class CDPSession {
   }
 
   async input(message) {
+    let focusedInput;
     if (message.type === 'pointer') {
       const mapping = {down: 'mousePressed', up: 'mouseReleased', move: 'mouseMoved'};
       if (!mapping[message.phase]) throw new Error('Unsupported pointer phase.');
@@ -95,6 +112,15 @@ export class CDPSession {
         buttons: message.phase === 'down' || message.dragging ? 1 : 0,
         clickCount: 1,
       });
+      if (message.phase === 'up') {
+        const x = Number.isFinite(Number(message.x)) ? Number(message.x) : 0;
+        const y = Number.isFinite(Number(message.y)) ? Number(message.y) : 0;
+        const result = await this.call('Runtime.evaluate', {
+          expression: `(()=>{const hit=document.elementFromPoint(${x},${y});if(!hit)return false;const editable=e=>{if(!e)return false;const tag=String(e.tagName||'').toLowerCase(),type=String(e.type||'').toLowerCase(),blocked=['button','submit','reset','checkbox','radio','file','image'];return tag==='textarea'||e.isContentEditable===true||e.getAttribute('role')==='textbox'||(tag==='input'&&!blocked.includes(type));};return editable(hit)||!!hit.closest?.('input,textarea,[contenteditable="true"],[role="textbox"]');})()`,
+          returnByValue: true,
+        });
+        focusedInput = result.result?.value === true;
+      }
     } else if (message.type === 'wheel') {
       await this.call('Input.dispatchMouseEvent', {
         type: 'mouseWheel', x: message.x, y: message.y,
@@ -116,6 +142,7 @@ export class CDPSession {
     } else {
       throw new Error('Unsupported remote input message.');
     }
+    return focusedInput === undefined ? undefined : {focusedInput};
   }
 
   async close() {

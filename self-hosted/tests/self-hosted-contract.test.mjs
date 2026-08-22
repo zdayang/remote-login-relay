@@ -16,11 +16,14 @@ test('tab selection fails closed for zero or ambiguous matches',()=>{
 });
 
 test('self-hosted package has no founder-specific path',async()=>{
-  const files=await Promise.all(['README.md','README.zh-CN.md','SKILL.md','scripts/start.sh','scripts/configure.sh','src/self-hosted-gateway.mjs','public/index.html'].map(read));
+  const files=await Promise.all(['README.md','README.zh-CN.md','SKILL.md','scripts/start.sh','scripts/configure.sh','scripts/setup.sh','scripts/test-email.sh','src/email.mjs','src/self-hosted-gateway.mjs','public/index.html'].map(read));
   const combined=files.join('\n');
   assert.doesNotMatch(combined,/\/Users\/yang|growth-machine|remote\.toolarks\.com/);
   assert.match(combined,/one exact Chrome tab/i);
   assert.match(combined,/不共享整个桌面/u);
+  assert.match(combined,/toolarks\.com\/(en|zh)\/remote-login-relay/i);
+  assert.match(combined,/smtp/i);
+  assert.match(combined,/Quick Tunnel/i);
 });
 
 test('public health endpoint is restricted by host',async()=>{

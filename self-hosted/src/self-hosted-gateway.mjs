@@ -4,6 +4,7 @@ import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import WebSocket, {WebSocketServer} from 'ws';
 import {CDPSession, listChromeTabs} from '../../core/cdp-session.mjs';
+import {createFrameForwarder} from '../../core/frame-forwarder.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const packageRoot = dirname(root);
@@ -24,7 +25,7 @@ const authorized = (requestUrl, req) => {
 async function selectedTab() {
   const tabs = await listChromeTabs(cdpHttp);
   const tab = tabs.find((item) => item.id === targetId);
-  if (!tab) throw new Error('The selected Chrome tab has closed.');
+  if (!tab) throw new Error('The Chrome page that needs login has closed.');
   return tab;
 }
 
@@ -65,9 +66,11 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', async (client) => {
   const session = new CDPSession({target: await selectedTab(), WebSocketImpl: WebSocket, mobile: true});
-  session.onFrame = ({data, metadata}) => {
-    if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({type: 'frame', data, metadata}));
-  };
+  const frameForwarder = createFrameForwarder({
+    socket: client,
+    encode: ({data, metadata}) => JSON.stringify({type: 'frame', data, metadata}),
+  });
+  session.onFrame = (frame) => frameForwarder.push(frame);
   try {
     const target = await session.connect();
     client.send(JSON.stringify({type: 'attached', target: {id: target.id, title: target.title, url: target.url}}));
@@ -76,7 +79,7 @@ wss.on('connection', async (client) => {
     try { await session.input(JSON.parse(raw.toString())); }
     catch (error) { if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({type: 'error', message: error.message})); }
   });
-  client.on('close', () => session.close().catch(() => {}));
+  client.on('close', () => { frameForwarder.close(); session.close().catch(() => {}); });
 });
 
 const timer = setTimeout(() => server.close(), Math.min(expiresSeconds, 7200) * 1000);

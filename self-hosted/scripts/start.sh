@@ -20,15 +20,21 @@ source "$CONFIG_FILE"
 for command in node npm cloudflared openssl curl; do
   command -v "$command" >/dev/null || { print -u2 "Missing dependency: $command"; exit 1; }
 done
-[[ -f "$REMOTE_RELAY_TUNNEL_CONFIG" ]] || { print -u2 "Tunnel config not found: $REMOTE_RELAY_TUNNEL_CONFIG"; exit 1; }
+REMOTE_RELAY_TUNNEL_MODE="${REMOTE_RELAY_TUNNEL_MODE:-named}"
+if [[ "$REMOTE_RELAY_TUNNEL_MODE" == named ]]; then
+  [[ -f "${REMOTE_RELAY_TUNNEL_CONFIG:-}" ]] || { print -u2 "Tunnel config not found: ${REMOTE_RELAY_TUNNEL_CONFIG:-unset}"; exit 1; }
+elif [[ "$REMOTE_RELAY_TUNNEL_MODE" != quick ]]; then
+  print -u2 "Unknown tunnel mode: $REMOTE_RELAY_TUNNEL_MODE"; exit 1
+fi
+[[ -n "${REMOTE_RELAY_SMTP_HOST:-}" && -n "${REMOTE_RELAY_SMTP_FROM:-}" && -n "${REMOTE_RELAY_NOTIFY_TO:-}" ]] || { print -u2 "Email is not configured. Run scripts/setup.sh first."; exit 1; }
 
 mkdir -p "$RUNTIME_DIR" "$APP_ROOT/self-hosted/src" "$APP_ROOT/self-hosted/public"
 chmod 700 "$APP_ROOT" "$RUNTIME_DIR"
 ditto "$PACKAGE_ROOT/src/self-hosted-gateway.mjs" "$APP_ROOT/self-hosted/src/self-hosted-gateway.mjs"
 ditto "$PACKAGE_ROOT/public/index.html" "$APP_ROOT/self-hosted/public/index.html"
 ditto "$PACKAGE_ROOT/../core" "$APP_ROOT/core"
-if [[ ! -d "$APP_ROOT/node_modules/ws" ]]; then
-  npm install --prefix "$APP_ROOT" --no-audit --no-fund ws@8.18.3 >/dev/null
+if [[ ! -d "$APP_ROOT/node_modules/ws" || ! -d "$APP_ROOT/node_modules/nodemailer" ]]; then
+  npm install --prefix "$APP_ROOT" --no-audit --no-fund ws@8.21.3 nodemailer@9.0.5 >/dev/null
 fi
 
 "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true
@@ -50,8 +56,43 @@ for attempt in {1..60}; do
 done
 curl --noproxy '*' --connect-timeout 1 --max-time 2 -fsS "http://127.0.0.1:$PORT/health" >/dev/null || { print -u2 "Gateway failed. See $RUNTIME_DIR/gateway.log"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
 
-launchctl submit -l "$TUNNEL_LABEL" -o "$RUNTIME_DIR/tunnel.log" -e "$RUNTIME_DIR/tunnel.log" -- \
-  "$(command -v node)" "$PACKAGE_ROOT/scripts/run-with-timeout.mjs" "$DURATION_SECONDS" "$(command -v cloudflared)" tunnel --config "$REMOTE_RELAY_TUNNEL_CONFIG" run "$REMOTE_RELAY_TUNNEL_NAME"
+PUBLIC_URL="${REMOTE_RELAY_PUBLIC_URL:-}"
+if [[ "$REMOTE_RELAY_TUNNEL_MODE" == named ]]; then
+  launchctl submit -l "$TUNNEL_LABEL" -o "$RUNTIME_DIR/tunnel.log" -e "$RUNTIME_DIR/tunnel.log" -- \
+    "$(command -v node)" "$PACKAGE_ROOT/scripts/run-with-timeout.mjs" "$DURATION_SECONDS" "$(command -v cloudflared)" tunnel --config "$REMOTE_RELAY_TUNNEL_CONFIG" run "$REMOTE_RELAY_TUNNEL_NAME"
+else
+  QUICK_URL_FILE="$RUNTIME_DIR/quick-tunnel-url"
+  rm -f "$QUICK_URL_FILE"
+  launchctl submit -l "$TUNNEL_LABEL" -o "$RUNTIME_DIR/tunnel.log" -e "$RUNTIME_DIR/tunnel.log" -- \
+    "$(command -v node)" "$PACKAGE_ROOT/scripts/run-quick-tunnel.mjs" "$DURATION_SECONDS" "$(command -v cloudflared)" "$PORT" "$QUICK_URL_FILE"
+  for attempt in {1..120}; do
+    [[ -s "$QUICK_URL_FILE" ]] && break
+    sleep 0.25
+  done
+  [[ -s "$QUICK_URL_FILE" ]] || { print -u2 "Cloudflare Quick Tunnel did not provide a public URL. See $RUNTIME_DIR/tunnel.log"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
+  PUBLIC_URL="$(tr -d '\r\n' < "$QUICK_URL_FILE")"
+fi
 
-print "Remote Login Relay is ready for $DURATION_MINUTES minutes:"
-print "${REMOTE_RELAY_PUBLIC_URL%/}/#token=$TOKEN"
+[[ "$PUBLIC_URL" == https://* ]] || { print -u2 "Tunnel did not provide an HTTPS URL"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
+for attempt in {1..60}; do
+  if curl --noproxy '*' --connect-timeout 2 --max-time 3 -fsS "$PUBLIC_URL/api/tab?token=$TOKEN" >/dev/null 2>&1; then break; fi
+  sleep 0.5
+done
+curl --noproxy '*' --connect-timeout 2 --max-time 5 -fsS "$PUBLIC_URL/api/tab?token=$TOKEN" >/dev/null || { print -u2 "Public tunnel is not reachable. See $RUNTIME_DIR/tunnel.log"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
+
+SMTP_PASSWORD="$(REMOTE_RELAY_SMTP_PASSWORD="${REMOTE_RELAY_SMTP_PASSWORD:-}" "$PACKAGE_ROOT/scripts/keychain-password.sh")"
+export REMOTE_RELAY_SMTP_PASSWORD="$SMTP_PASSWORD"
+if ! node "$PACKAGE_ROOT/src/send-link.mjs" "${PUBLIC_URL%/}/#token=$TOKEN"; then
+  print -u2 "The relay is running but the email could not be sent. Fix SMTP and run scripts/test-email.sh, then start a new handoff.";
+  "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true
+  unset REMOTE_RELAY_SMTP_PASSWORD SMTP_PASSWORD
+  exit 1
+fi
+unset REMOTE_RELAY_SMTP_PASSWORD SMTP_PASSWORD
+
+print "Remote Login Relay is ready for $DURATION_MINUTES minutes."
+print "A ToolArks login link was sent to: $REMOTE_RELAY_NOTIFY_TO"
+print "Tunnel mode: $REMOTE_RELAY_TUNNEL_MODE"
+if [[ "$REMOTE_RELAY_TUNNEL_MODE" == quick ]]; then
+  print "Quick Tunnel URL (changes on the next run): $PUBLIC_URL"
+fi

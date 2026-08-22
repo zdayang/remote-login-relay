@@ -1,17 +1,22 @@
 {
   "name": "remote-login-relay",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Open-source, self-hosted handoff of one Chrome tab to your phone.",
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node --test tests/self-hosted-contract.test.mjs",
-    "test:e2e": "node --test tests/chrome-cdp.e2e.test.mjs"
+    "test": "node --test tests/self-hosted-contract.test.mjs tests/email.test.mjs",
+    "test:e2e": "node --test tests/chrome-cdp.e2e.test.mjs tests/self-hosted-relay.e2e.test.mjs",
+    "test:email": "node --test tests/email.test.mjs"
   },
   "dependencies": {
-    "ws": "8.18.3"
+    "nodemailer": "9.0.5",
+    "ws": "8.21.3"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "smtp-server": "3.19.3"
   }
 }
