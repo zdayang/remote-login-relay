@@ -15,7 +15,7 @@ Run the guided setup first:
 It asks three practical questions instead of leaving you with unexplained environment variables:
 
 1. **Do you have a domain managed by Cloudflare?** Choose the stable hostname route. You create a named Cloudflare Tunnel and point `relay.yourdomain.com` to the local gateway.
-2. **Do you have a Cloudflare account but no domain?** Choose Quick Tunnel. It is free for development, does not require a domain (or even an account login), and creates a random `trycloudflare.com` URL for each run. It is not a permanent address.
+2. **Do you have a Cloudflare account but no domain?** Choose Quick Tunnel. It is a temporary development route, does not require a domain (or even an account login), and creates a random `trycloudflare.com` URL for each run. It is not a permanent address.
 3. **Is this too much setup?** The wizard shows the ToolArks hosted option, which removes domain, tunnel, and sender-email setup: [use the hosted version](https://toolarks.com/en/remote-login-relay).
 
 The same wizard configures delivery. Choose Gmail/Google Workspace, Outlook/Microsoft 365, or another SMTP provider. It gives the right host and security defaults, asks for the sender and phone notification address, and stores an SMTP App Password in macOS Keychain. The password is never written to `config.env`, printed, or sent to ToolArks.

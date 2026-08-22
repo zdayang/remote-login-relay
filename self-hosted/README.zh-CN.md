@@ -15,7 +15,7 @@
 向导会先问三个问题：
 
 1. **你有由 Cloudflare 管理 DNS 的域名吗？** 有的话，使用稳定域名和命名的 Cloudflare Tunnel。
-2. **你没有域名，但有 Cloudflare 账号吗？** 可以使用免费的 Quick Tunnel。它不需要域名（甚至不要求登录账号），每次生成一个随机的 `trycloudflare.com` 地址，适合测试，不是固定生产地址。
+2. **你没有域名，但有 Cloudflare 账号吗？** 可以使用临时的 Quick Tunnel。它不需要域名（甚至不要求登录账号），每次生成一个随机的 `trycloudflare.com` 地址，适合测试，不是固定生产地址。
 3. **太麻烦了，想直接使用？** 向导会给出 ToolArks 托管版入口；托管版替你处理域名、隧道和发件邮箱配置：[使用托管版](https://toolarks.com/zh/remote-login-relay)。不会未经同意替你购买或创建账号。
 
 然后向导会配置发件邮箱：Gmail/Google Workspace、Outlook/Microsoft 365 或自定义 SMTP。它会给出正确的服务器和安全方式，要求你填写发件地址与手机通知地址，并将 SMTP 应用专用密码保存到 macOS 钥匙串。密码不会写入 `config.env`，也不会打印或发送给 ToolArks。

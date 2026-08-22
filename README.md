@@ -1,48 +1,159 @@
-# ToolArks Remote Login Relay — self-hosted
+<div align="center">
+
+# ToolArks Remote Login Relay
+
+**Let your AI agent continue — even when you are away from the Mac.**
+
+Finish one human-only Chrome login from your phone, without handing passwords or the whole desktop to an AI agent.
+
+[![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](self-hosted/LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-111827?style=flat-square&logo=apple&logoColor=white)](#requirements)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?style=flat-square&logo=node.js&logoColor=white)](#requirements)
+[![Chrome](https://img.shields.io/badge/Chrome-CDP-4285F4?style=flat-square&logo=googlechrome&logoColor=white)](#install-and-prepare-chrome)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-Tunnel-F38020?style=flat-square&logo=cloudflare&logoColor=white)](#choose-a-public-path)
+[![SMTP](https://img.shields.io/badge/SMTP-email-2563EB?style=flat-square&logo=minutemailer&logoColor=white)](#configure-email)
+[![Stars](https://img.shields.io/github/stars/zdayang/remote-login-relay?style=flat-square)](https://github.com/zdayang/remote-login-relay/stargazers)
+[![Issues](https://img.shields.io/github/issues/zdayang/remote-login-relay?style=flat-square)](https://github.com/zdayang/remote-login-relay/issues)
+
+[Website](https://toolarks.com/en/remote-login-relay) · [Installation](self-hosted/README.md) · [简体中文](self-hosted/README.zh-CN.md) · [Security](SECURITY.md) · [Report an issue](https://github.com/zdayang/remote-login-relay/issues/new)
+
+</div>
 
 ![Remote Login Relay: when an AI agent is blocked by login while you are away, finish the login from your phone](assets/how-it-works.png)
 
-Remote Login Relay lets you finish a human-only browser login from your phone when a local AI agent is working on your Mac. It exposes one exact Chrome page for a short, owner-controlled handoff; it does not share the desktop or ask the agent to handle your password.
+## Why this exists
 
-## The problem
+Codex, Claude Code, and browser agents can complete most of a workflow locally. The final human-only step can still stop everything: a QR code, one-time code, passkey, CAPTCHA, phone prompt, or consent screen appears while you are away from the Mac.
 
-Agents such as Codex and Claude Code can carry a browser workflow a long way, but authentication often stops them at the last step: a QR code, one-time code, phone prompt, passkey, CAPTCHA, or consent screen. The alternatives are to wait until you return to the Mac, give the agent sensitive credentials, or expose the whole desktop. This package provides a narrower handoff: one exact Chrome page, one owner, one temporary session.
+The usual choices are to wait, share sensitive credentials with the agent, or expose the entire desktop through a general remote-access tool. Remote Login Relay provides a narrower handoff:
 
-## How it works
+> **One exact Chrome tab · one owner · one short-lived session.**
+
+## What it does
 
 1. The Skill matches one open Chrome tab by a specific URL or title fragment and refuses zero or ambiguous matches.
 2. A local gateway connects to that tab through Chrome DevTools Protocol.
-3. A short-lived random token is placed in a phone link. The gateway and public tunnel are started only for the handoff.
+3. A short-lived random token is placed in a phone link. The gateway and public tunnel run only for the handoff.
 4. The phone receives images of that tab and sends bounded pointer, keyboard, scroll, back, and reload actions.
-5. After login, the agent confirms the original page left the login screen, then the gateway and tunnel are stopped.
+5. After you finish the login, the agent confirms that the original page left the login screen and the relay is stopped.
 
 Passwords, verification codes, cookies, browser storage, and session tokens are not exported to the AI workflow.
 
-## What the open-source package includes
+## What is included
 
 - Codex and Claude Code Skill;
 - one-tab Chrome controller and local gateway;
 - mobile browser interface;
-- guided setup for SMTP email delivery;
+- guided SMTP setup for Gmail, Microsoft 365, and custom providers;
 - stable domain + named Cloudflare Tunnel route;
 - temporary Cloudflare Quick Tunnel route when you do not have a domain;
 - ToolArks-branded email test and login-link delivery;
 - English and Simplified Chinese documentation;
 - contract, email, and isolated-Chrome end-to-end tests.
 
-Start with the [self-hosted setup guide](self-hosted/README.md) or [简体中文说明](self-hosted/README.zh-CN.md). The setup wizard asks whether you have a domain, whether you have a Cloudflare account, and how you want to proceed. If the setup is too much, it explains the separately operated hosted option; no account or purchase is created automatically.
+## Choose a public path
+
+| Path | Best for | Address | Trade-off |
+| --- | --- | --- | --- |
+| **Named Cloudflare Tunnel** | Repeatable personal use | Your own domain | Requires a domain and one-time Cloudflare setup |
+| **Cloudflare Quick Tunnel** | A quick trial | Temporary `trycloudflare.com` URL | The address changes on every run |
+
+Both paths keep the gateway on your Mac and expose only the selected Chrome tab. The guided wizard asks which path fits before it asks for email settings.
+
+## Quick start
+
+```bash
+git clone https://github.com/zdayang/remote-login-relay.git
+cd remote-login-relay/self-hosted
+npm install
+./scripts/setup.sh
+./scripts/test-email.sh
+./scripts/install.sh codex       # or: ./scripts/install.sh claude
+```
+
+The [self-hosted setup guide](self-hosted/README.md) explains the domain, Cloudflare, SMTP, Chrome, and first-handoff steps in detail.
+
+### Requirements
+
+- macOS 13 or newer;
+- Node.js 20 or newer;
+- Google Chrome or Chromium;
+- `cloudflared` (`brew install cloudflared`);
+- an SMTP mailbox allowed to send to your notification address;
+- Codex or Claude Code if you want to use the packaged Skill.
+
+### Install and prepare Chrome
+
+Chrome 136 and newer require a non-default profile when remote debugging is enabled. Use a separate profile for agent-controlled work:
+
+```bash
+open -na "Google Chrome" --args \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/Library/Application Support/ToolArks/RemoteLoginRelayChrome"
+```
+
+Keep port `9222` on localhost. Sign in to the websites you need inside this Chrome profile, then confirm the endpoint:
+
+```bash
+curl --noproxy '*' http://127.0.0.1:9222/json/version
+```
+
+### Configure email
+
+Run the setup wizard and choose Gmail/Google Workspace, Outlook/Microsoft 365, or another SMTP provider. The wizard stores an authenticated mailbox password in macOS Keychain; it is never written to `config.env`, printed, or sent to ToolArks.
+
+Before a real handoff, run:
+
+```bash
+./scripts/test-email.sh
+```
+
+### Start a handoff
+
+Open the login page in the isolated Chrome profile and identify exactly one tab:
+
+```bash
+./scripts/start.sh 30 'accounts.example.com/login'
+```
+
+The command refuses zero or ambiguous matches, starts the local gateway, verifies the public endpoint, and sends the complete temporary link to your configured notification address. Open the ToolArks email on your phone and finish the login.
+
+When finished:
+
+```bash
+./scripts/stop.sh
+./scripts/status.sh
+```
+
+## Using the Skill
+
+Ask your agent to use `$remote-login-relay` when it reaches a human-only login step. The Skill guides first-run setup, tests email delivery, selects one exact blocked tab, sends a ToolArks-branded phone link, and verifies the original tab after login.
+
+The Skill never reads or requests browser passwords, cookies, verification codes, or session tokens.
 
 ## Security boundary
 
 - Exactly one explicitly matched Chrome tab is shared, never the whole desktop.
 - The Chrome debugging port stays on localhost and must never be published directly.
 - The complete temporary URL is a bearer credential. Anyone who receives it can control the selected tab until it expires or the session is stopped.
-- The self-hosted package stores SMTP passwords in macOS Keychain when configured with an authenticated mailbox; secrets are not written to `config.env`.
 - Quick Tunnel addresses are temporary and change between runs. A stable address requires your own domain and named Cloudflare Tunnel.
+- The self-hosted package stores SMTP passwords in macOS Keychain when configured with an authenticated mailbox; secrets are not written to `config.env`.
 - No macOS account password is requested during installation or use.
 - Windows, Safari, whole-machine control, sleeping Macs, multi-user sharing, and permanent unattended access are not supported in the current release.
 
 Read [SECURITY.md](SECURITY.md) before exposing a self-hosted hostname.
+
+## Verification status
+
+The current public source has automated coverage for:
+
+- contract and fail-closed tab-selection checks;
+- ToolArks-branded email delivery and HTTPS-link validation;
+- isolated Chrome gateway frame delivery and remote text input;
+- setup wizard routes and shell syntax;
+- dependency audit with zero high-severity vulnerabilities at the tested commit.
+
+Real customer demand and repeat use are not yet validated. Treat this as an early open-source product, not as an authentication service or security bypass.
 
 ## Repository layout
 
@@ -51,12 +162,8 @@ remote-login-relay/
 ├── assets/           Product workflow illustration
 ├── core/             Shared one-tab Chrome controller
 ├── self-hosted/      MIT-licensed Skill, gateway, mobile UI, and setup scripts
-└── SECURITY.md
+└── SECURITY.md       Threat model and deployment boundaries
 ```
-
-## Evidence status
-
-The one-tab controller, fail-closed tab selection, email delivery, temporary tunnel flow, and isolated-Chrome gateway have automated technical coverage. Real customer demand and repeat use are not yet validated. Treat this as an early open-source product, not as an authentication service or security bypass.
 
 ## License
 
