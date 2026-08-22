@@ -15,7 +15,9 @@ Finish one human-only Chrome login from your phone, without handing passwords or
 [![Stars](https://img.shields.io/github/stars/zdayang/remote-login-relay?style=flat-square)](https://github.com/zdayang/remote-login-relay/stargazers)
 [![Issues](https://img.shields.io/github/issues/zdayang/remote-login-relay?style=flat-square)](https://github.com/zdayang/remote-login-relay/issues)
 
-[Website](https://toolarks.com/en/remote-login-relay) · [Installation](self-hosted/README.md) · [简体中文](self-hosted/README.zh-CN.md) · [Security](SECURITY.md) · [Report an issue](https://github.com/zdayang/remote-login-relay/issues/new)
+[Website](https://toolarks.com/en/remote-login-relay) · [Installation](self-hosted/README.md) · [Security](SECURITY.md) · [Report an issue](https://github.com/zdayang/remote-login-relay/issues/new)
+
+[English](README.md) | [简体中文](self-hosted/README.zh-CN.md)
 
 </div>
 
