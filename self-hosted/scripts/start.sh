@@ -13,7 +13,9 @@ GATEWAY_LABEL="${REMOTE_RELAY_GATEWAY_LABEL:-com.toolarks.remote-login-relay.gat
 TUNNEL_LABEL="${REMOTE_RELAY_TUNNEL_LABEL:-com.toolarks.remote-login-relay.tunnel}"
 
 [[ -f "$CONFIG_FILE" ]] || { print -u2 "Run scripts/configure.sh first."; exit 1; }
+set -a
 source "$CONFIG_FILE"
+set +a
 [[ "$DURATION_MINUTES" == <-> ]] && (( DURATION_MINUTES >= 1 && DURATION_MINUTES <= 120 )) || { print -u2 "Duration must be 1-120 minutes."; exit 2; }
 [[ -n "$TARGET_MATCH" ]] || { print -u2 "A specific Chrome URL or title fragment is required."; exit 2; }
 
