@@ -1,0 +1,54 @@
+name: First handoff worked
+description: Voluntarily confirm that you completed one phone handoff
+title: "[Success] First phone handoff completed"
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Remote Login Relay. This report is voluntary and helps us measure real first value without adding hidden telemetry.
+
+        **Never include a password, verification code, cookie, temporary relay URL, or screenshot of a private page.**
+  - type: dropdown
+    id: agent
+    attributes:
+      label: AI agent
+      options:
+        - Codex
+        - Claude Code
+        - Another local agent
+    validations:
+      required: true
+  - type: dropdown
+    id: public_path
+    attributes:
+      label: Public path
+      options:
+        - Cloudflare Quick Tunnel
+        - Named Cloudflare Tunnel with my domain
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: delivery
+    attributes:
+      label: How did you open the phone link?
+      options:
+        - Directly from the AI conversation
+        - From the email notification
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What was the hardest part?
+      description: Optional. Describe the step, not any credential or private page content.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I did not include credentials, cookies, temporary relay URLs, or private screenshots.
+          required: true

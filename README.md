@@ -89,6 +89,15 @@ npm install
 
 The [self-hosted setup guide](self-hosted/README.md) explains the domain, Cloudflare, SMTP, Chrome, and first-handoff steps in detail.
 
+### Tell us whether the first handoff worked
+
+The self-hosted edition has no hidden product telemetry. If you try it, two short voluntary reports help us improve the setup without collecting browser activity:
+
+- [My first phone handoff worked](https://github.com/zdayang/remote-login-relay/issues/new?template=handoff-success.yml)
+- [I was blocked during setup or handoff](https://github.com/zdayang/remote-login-relay/issues/new?template=setup-blocked.yml)
+
+Do not include passwords, verification codes, cookies, temporary relay URLs, screenshots of private pages, or other credentials in an issue.
+
 ### Requirements
 
 - macOS 13 or newer;

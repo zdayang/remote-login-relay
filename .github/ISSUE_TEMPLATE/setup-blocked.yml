@@ -1,0 +1,60 @@
+name: Setup or handoff blocked
+description: Report where the self-hosted flow stopped
+title: "[Setup blocked] "
+labels:
+  - setup
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report the failing step and safe diagnostic output only.
+
+        **Never include a password, verification code, cookie, temporary relay URL, SMTP password, tunnel token, or screenshot of a private page.**
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where were you blocked?
+      options:
+        - Installing dependencies
+        - Preparing Chrome
+        - Choosing a public path
+        - Configuring email
+        - Selecting one Chrome tab
+        - Opening the phone link
+        - Interacting with the page from the phone
+        - Confirming login and stopping the relay
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: AI agent
+      options:
+        - Codex
+        - Claude Code
+        - Another local agent
+        - I ran the scripts directly
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "For example: 15.6"
+    validations:
+      required: true
+  - type: textarea
+    id: safe_output
+    attributes:
+      label: Safe error output
+      description: Remove email addresses, hostnames, tokens, URLs, and private page content before posting.
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, personal data, private URLs, tunnel tokens, and private screenshots.
+          required: true
