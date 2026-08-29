@@ -35,9 +35,10 @@ The usual choices are to wait, share sensitive credentials with the agent, or ex
 
 1. The Skill matches one open Chrome tab by a specific URL or title fragment and refuses zero or ambiguous matches.
 2. A local gateway connects to that tab through Chrome DevTools Protocol.
-3. A short-lived random token is placed in a phone link. The gateway and public tunnel run only for the handoff.
-4. The phone receives images of that tab and sends bounded pointer, keyboard, scroll, back, and reload actions.
-5. After you finish the login, the agent confirms that the original page left the login screen and the relay is stopped.
+3. Before any link is delivered, the relay checks that the target tab is still usable and is not already showing an expired or timed-out login page.
+4. A short-lived random token is placed in a phone link. The same private link is shown in the current AI conversation and sent by email, so you can use it immediately or notice it while away from the chat.
+5. The phone receives images of that tab and sends bounded pointer, keyboard, scroll, back, and reload actions.
+6. After you finish the login, the agent confirms that the original page left the login screen and the relay is stopped.
 
 Passwords, verification codes, cookies, browser storage, and session tokens are not exported to the AI workflow.
 
@@ -49,7 +50,7 @@ Passwords, verification codes, cookies, browser storage, and session tokens are 
 - guided SMTP setup for Gmail, Microsoft 365, and custom providers;
 - stable domain + named Cloudflare Tunnel route;
 - temporary Cloudflare Quick Tunnel route when you do not have a domain;
-- ToolArks-branded email test and login-link delivery;
+- dual link delivery: direct in the active AI conversation plus ToolArks-branded email notification;
 - English and Simplified Chinese documentation;
 - contract, email, and isolated-Chrome end-to-end tests.
 
@@ -131,7 +132,7 @@ Open the login page in the isolated Chrome profile and identify exactly one tab:
 ./scripts/start.sh 30 'accounts.example.com/login'
 ```
 
-The command refuses zero or ambiguous matches, starts the local gateway, verifies the public endpoint, and sends the complete temporary link to your configured notification address. Open the ToolArks email on your phone and finish the login.
+The command refuses zero or ambiguous matches, rejects an explicitly expired or timed-out login page, starts the local gateway, verifies the public endpoint, and delivers the same complete temporary link in two ways: directly in the active AI conversation and by email to your configured notification address. Use the direct link immediately, or open the ToolArks email on your phone when you are away from the chat.
 
 When finished:
 
@@ -142,7 +143,7 @@ When finished:
 
 ## Using the Skill
 
-Ask your agent to use `$remote-login-relay` when it reaches a human-only login step. The Skill guides first-run setup, tests email delivery, selects one exact blocked tab, sends a ToolArks-branded phone link, and verifies the original tab after login.
+Ask your agent to use `$remote-login-relay` when it reaches a human-only login step. The Skill guides first-run setup, tests email delivery, selects one exact blocked tab, returns the private phone link in the current conversation, sends a ToolArks-branded email notification, and verifies the original tab after login.
 
 The Skill never reads or requests browser passwords, cookies, verification codes, or session tokens.
 
@@ -151,6 +152,7 @@ The Skill never reads or requests browser passwords, cookies, verification codes
 - Exactly one explicitly matched Chrome tab is shared, never the whole desktop.
 - The Chrome debugging port stays on localhost and must never be published directly.
 - The complete temporary URL is a bearer credential. Anyone who receives it can control the selected tab until it expires or the session is stopped.
+- Direct delivery means the local terminal and active AI conversation provider process the complete URL and may retain it under their own history or logging policies. Keep sessions short and stop them immediately after login.
 - Quick Tunnel addresses are temporary and change between runs. A stable address requires your own domain and named Cloudflare Tunnel.
 - The self-hosted package stores SMTP passwords in macOS Keychain when configured with an authenticated mailbox; secrets are not written to `config.env`.
 - No macOS account password is requested during installation or use.

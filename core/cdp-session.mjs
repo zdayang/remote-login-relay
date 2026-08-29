@@ -17,6 +17,24 @@ export function selectExactTab(tabs, match) {
   return hits[0];
 }
 
+const expiredLoginPatterns = [
+  /session has timed out/i,
+  /session (?:has )?expired/i,
+  /sign in again to resume/i,
+  /login session (?:has )?expired/i,
+  /authentication session (?:has )?expired/i,
+];
+
+export function assessLoginPageState(state) {
+  const title = String(state?.title || '');
+  const text = String(state?.text || '');
+  const combined = `${title}\n${text}`;
+  if (expiredLoginPatterns.some((pattern) => pattern.test(combined))) {
+    return {ready: false, reason: 'expired'};
+  }
+  return {ready: true};
+}
+
 export class CDPSession {
   constructor({target, WebSocketImpl, mobile = true}) {
     this.target = target;
@@ -29,7 +47,7 @@ export class CDPSession {
     this.onClose = null;
   }
 
-  async connect() {
+  async #openSocket() {
     if (!this.target?.webSocketDebuggerUrl) throw new Error('The Chrome page that needs login is no longer available.');
     this.socket = new this.WebSocketImpl(this.target.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
@@ -38,8 +56,25 @@ export class CDPSession {
     });
     this.socket.on('message', (data) => this.#handleMessage(data));
     this.socket.on('close', () => this.onClose?.());
-    await this.call('Page.enable');
     await this.call('Runtime.enable');
+  }
+
+  async preflight() {
+    if (!this.socket) await this.#openSocket();
+    const inspected = await this.call('Runtime.evaluate', {
+      expression: `(()=>({title:document.title,url:location.href,text:document.body?.innerText?.slice(0,1200)||'',hasPasswordField:!!document.querySelector('input[type="password"]'),pageAgeMs:Math.max(0,Date.now()-performance.timeOrigin)}))()`,
+      returnByValue: true,
+    });
+    return assessLoginPageState(inspected.result?.value);
+  }
+
+  async connect() {
+    if (!this.socket) await this.#openSocket();
+    await this.call('Page.enable');
+    const readiness = await this.preflight();
+    if (!readiness.ready) {
+      throw new Error(`The website's own login session is expired. Open a fresh sign-in page, then start Remote Login Relay again.`);
+    }
     if (this.mobile) {
       await this.call('Emulation.setDeviceMetricsOverride', {
         width: 780,

@@ -38,7 +38,7 @@ test('self-hosted gateway delivers a frame and remote text input', {timeout: 400
       return values.some((tab) => tab.url === 'about:blank') ? values : null;
     });
     const target = selectExactTab(tabs, 'about:blank');
-    const html = '<label>Code <input id="code" autofocus></label><p id="status">ready</p>';
+    const html = '<label>Code <input id="code" autofocus></label><p id="status">ready</p><script>setInterval(()=>status.textContent=String(Date.now()),16)</script>';
     await fetch(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent(`data:text/html,${encodeURIComponent(html)}`)}`, {method: 'PUT'}).catch(() => {});
     const pages = await waitFor(async () => {
       const values = await listChromeTabs(cdpHttp);
@@ -53,6 +53,8 @@ test('self-hosted gateway delivers a frame and remote text input', {timeout: 400
     const errors = [];
     relay.stderr.on('data', (chunk) => errors.push(chunk.toString()));
     await waitFor(async () => (await fetch(`http://127.0.0.1:${relayPort}/health`).then((response) => response.ok).catch(() => false)) ? true : null);
+    const freshPreflight = await fetch(`http://127.0.0.1:${relayPort}/preflight`);
+    assert.equal(freshPreflight.status, 200, errors.join(''));
     const response = await fetch(`http://127.0.0.1:${relayPort}/api/tab?token=${token}`);
     assert.equal(response.status, 200, errors.join(''));
     socket = new WebSocket(`ws://127.0.0.1:${relayPort}/ws?token=${token}`);
@@ -60,8 +62,14 @@ test('self-hosted gateway delivers a frame and remote text input', {timeout: 400
     socket.on('message', (data) => messages.push(JSON.parse(data.toString())));
     await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
     await waitFor(() => messages.find((message) => message.type === 'attached'));
-    await waitFor(() => messages.find((message) => message.type === 'frame'));
-    socket.send(JSON.stringify({type: 'text', text: 'from-phone'}));
+    const firstFrame = await waitFor(() => messages.find((message) => message.type === 'frame'));
+    assert.ok(firstFrame.frameId, 'frames must carry an id for phone-side backpressure');
+    const inputStartedAt = Date.now();
+    socket.send(JSON.stringify({type: 'text', text: 'from-phone', actionId: 'latency-check'}));
+    const inputAck = await waitFor(() => messages.find((message) => message.type === 'inputAck' && message.actionId === 'latency-check'));
+    assert.equal(inputAck.ok, true);
+    assert.ok(Date.now() - inputStartedAt < 750, `input acknowledgement was too slow: ${Date.now() - inputStartedAt}ms`);
+    socket.send(JSON.stringify({type: 'frameAck', frameId: firstFrame.frameId}));
     const value = await waitFor(async () => {
       const values = await listChromeTabs(cdpHttp);
       const page = values.find((tab) => tab.id === targetId);
@@ -79,6 +87,18 @@ test('self-hosted gateway delivers a frame and remote text input', {timeout: 400
       return result === 'from-phone' ? result : null;
     });
     assert.equal(value, 'from-phone');
+    const activePage = (await listChromeTabs(cdpHttp)).find((tab) => tab.id === targetId);
+    const inspectionSocket = new WebSocket(activePage.webSocketDebuggerUrl);
+    await new Promise((resolve, reject) => { inspectionSocket.once('open', resolve); inspectionSocket.once('error', reject); });
+    await new Promise((resolve, reject) => {
+      inspectionSocket.on('message', (data) => { const message = JSON.parse(data.toString()); if (message.id === 1) resolve(); });
+      inspectionSocket.send(JSON.stringify({id: 1, method: 'Runtime.evaluate', params: {expression: `document.body.innerHTML='<h1>Your session has timed out.</h1><p>Sign in again to resume.</p>'`}}));
+      setTimeout(() => reject(new Error('expired-page setup timeout')), 1000);
+    });
+    inspectionSocket.close();
+    const expiredPreflight = await fetch(`http://127.0.0.1:${relayPort}/preflight`);
+    assert.equal(expiredPreflight.status, 409, 'expired third-party login pages must be rejected before link delivery');
+    assert.equal((await expiredPreflight.json()).reason, 'expired');
   } finally {
     socket?.close();
     if (relay?.exitCode === null) relay.kill('SIGTERM');

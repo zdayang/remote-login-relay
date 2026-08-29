@@ -23,7 +23,7 @@ The wizard must ask plainly: “Do you have a domain?”, “Do you have a Cloud
 
 The sender and phone notification address may be the same. The password is entered hidden and stored in macOS Keychain; it is not written to `config.env`, printed, or requested in chat. After setup, run `scripts/test-email.sh` and wait for the ToolArks test message before creating a real handoff.
 
-If configuration fails, report the exact failing step and retry the email test after correction. Do not silently fall back to printing a link: the normal flow sends a ToolArks-branded email. A manual link is a deliberate fallback only when the user explicitly asks for it.
+If configuration fails, report the exact failing step and retry the email test after correction. The normal flow deliberately provides both delivery paths: it prints the temporary URL for the current conversation and sends a ToolArks-branded email notification. Email failure still fails closed because the user may not be watching the conversation.
 
 ## Safety boundary
 
@@ -31,15 +31,15 @@ If configuration fails, report the exact failing step and retry the email test a
 - Never expose Chrome's debugging port to the public internet.
 - Never share the whole desktop; expose one exact Chrome tab only.
 - Select one exact tab with a specific URL or title fragment. If more than one tab matches, stop and request a more specific fragment.
-- The remote link is a temporary sensitive credential. Send it only to the configured notification address or another channel explicitly chosen by the user.
+- The remote link is a temporary sensitive credential. Return it only in the current authorized conversation and send it only to the configured notification address. The local terminal and conversation provider process it and may retain it under their own history or logging policies; never copy it into documentation, issues, or unrelated channels.
 - Use 30 minutes by default and stop the gateway immediately after read-back confirms the login succeeded.
 
 ## Run
 
 1. Confirm `scripts/setup.sh` and `scripts/test-email.sh` have completed successfully.
 2. Ask which exact URL or title fragment identifies the login tab, then run `scripts/start.sh 30 '<specific URL or title fragment>'`.
-3. The command starts the gateway and tunnel, verifies the public endpoint, and sends the complete temporary link by email. It does not reveal the link in chat by default.
-4. Ask the user to open the ToolArks email on the phone and complete only the login step.
+3. The command starts the gateway and tunnel, verifies the public endpoint, and outputs the complete temporary link after the ToolArks email has been sent.
+4. Return that exact link directly in the current conversation and tell the user the same link was emailed as an asynchronous notification.
 5. Read the original Chrome tab and confirm that it left the login screen.
 6. Run `scripts/stop.sh`, then `scripts/status.sh`; report the shutdown result.
 

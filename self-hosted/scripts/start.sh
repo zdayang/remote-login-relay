@@ -58,6 +58,17 @@ for attempt in {1..60}; do
 done
 curl --noproxy '*' --connect-timeout 1 --max-time 2 -fsS "http://127.0.0.1:$PORT/health" >/dev/null || { print -u2 "Gateway failed. See $RUNTIME_DIR/gateway.log"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
 
+PREFLIGHT_RESPONSE="$(curl --noproxy '*' --connect-timeout 2 --max-time 5 -sS -w '\n%{http_code}' "http://127.0.0.1:$PORT/preflight")"
+PREFLIGHT_STATUS="${PREFLIGHT_RESPONSE##*$'\n'}"
+PREFLIGHT_BODY="${PREFLIGHT_RESPONSE%$'\n'*}"
+if [[ "$PREFLIGHT_STATUS" != 200 ]]; then
+  print -u2 "No phone link was sent: the website's own login session is expired."
+  print -u2 "Open a fresh sign-in page in Chrome, then start Remote Login Relay again."
+  [[ -n "$PREFLIGHT_BODY" ]] && print -u2 "$PREFLIGHT_BODY"
+  "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true
+  exit 1
+fi
+
 PUBLIC_URL="${REMOTE_RELAY_PUBLIC_URL:-}"
 if [[ "$REMOTE_RELAY_TUNNEL_MODE" == named ]]; then
   launchctl submit -l "$TUNNEL_LABEL" -o "$RUNTIME_DIR/tunnel.log" -e "$RUNTIME_DIR/tunnel.log" -- \
@@ -82,9 +93,10 @@ for attempt in {1..60}; do
 done
 curl --noproxy '*' --connect-timeout 2 --max-time 5 -fsS "$PUBLIC_URL/api/tab?token=$TOKEN" >/dev/null || { print -u2 "Public tunnel is not reachable. See $RUNTIME_DIR/tunnel.log"; "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true; exit 1; }
 
+LOGIN_URL="${PUBLIC_URL%/}/#token=$TOKEN"
 SMTP_PASSWORD="$(REMOTE_RELAY_SMTP_PASSWORD="${REMOTE_RELAY_SMTP_PASSWORD:-}" "$PACKAGE_ROOT/scripts/keychain-password.sh")"
 export REMOTE_RELAY_SMTP_PASSWORD="$SMTP_PASSWORD"
-if ! node "$PACKAGE_ROOT/src/send-link.mjs" "${PUBLIC_URL%/}/#token=$TOKEN"; then
+if ! node "$PACKAGE_ROOT/src/send-link.mjs" "$LOGIN_URL"; then
   print -u2 "The relay is running but the email could not be sent. Fix SMTP and run scripts/test-email.sh, then start a new handoff.";
   "$PACKAGE_ROOT/scripts/stop.sh" >/dev/null 2>&1 || true
   unset REMOTE_RELAY_SMTP_PASSWORD SMTP_PASSWORD
@@ -94,6 +106,7 @@ unset REMOTE_RELAY_SMTP_PASSWORD SMTP_PASSWORD
 
 print "Remote Login Relay is ready for $DURATION_MINUTES minutes."
 print "A ToolArks login link was sent to: $REMOTE_RELAY_NOTIFY_TO"
+print "Direct phone link (private and temporary): $LOGIN_URL"
 print "Tunnel mode: $REMOTE_RELAY_TUNNEL_MODE"
 if [[ "$REMOTE_RELAY_TUNNEL_MODE" == quick ]]; then
   print "Quick Tunnel URL (changes on the next run): $PUBLIC_URL"

@@ -51,6 +51,19 @@ const server = http.createServer(async (req, res) => {
       if (!['127.0.0.1', 'localhost', '::1'].includes(host)) { res.writeHead(404).end('Not found'); return; }
       res.writeHead(200, {'content-type': 'text/plain'}).end('ok'); return;
     }
+    if (url.pathname === '/preflight') {
+      const host = String(req.headers.host || '').replace(/^\[/, '').split(/[:\]]/)[0].toLowerCase();
+      if (!['127.0.0.1', 'localhost', '::1'].includes(host)) { res.writeHead(404).end('Not found'); return; }
+      const session = new CDPSession({target: await selectedTab(), WebSocketImpl: WebSocket, mobile: false});
+      try {
+        const result = await session.preflight();
+        res.writeHead(result.ready ? 200 : 409, {'content-type': 'application/json', 'cache-control': 'no-store'});
+        res.end(JSON.stringify(result));
+      } finally {
+        await session.close().catch(() => {});
+      }
+      return;
+    }
     res.writeHead(404).end('Not found');
   } catch (error) { res.writeHead(500, {'content-type': 'text/plain'}).end(error.message); }
 });
@@ -68,7 +81,8 @@ wss.on('connection', async (client) => {
   const session = new CDPSession({target: await selectedTab(), WebSocketImpl: WebSocket, mobile: true});
   const frameForwarder = createFrameForwarder({
     socket: client,
-    encode: ({data, metadata}) => JSON.stringify({type: 'frame', data, metadata}),
+    waitForAck: true,
+    encode: ({data, metadata}, {frameId}) => JSON.stringify({type: 'frame', frameId, data, metadata}),
   });
   session.onFrame = (frame) => frameForwarder.push(frame);
   try {
@@ -76,8 +90,23 @@ wss.on('connection', async (client) => {
     client.send(JSON.stringify({type: 'attached', target: {id: target.id, title: target.title, url: target.url}}));
   } catch (error) { client.send(JSON.stringify({type: 'error', message: error.message})); }
   client.on('message', async (raw) => {
-    try { await session.input(JSON.parse(raw.toString())); }
-    catch (error) { if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({type: 'error', message: error.message})); }
+    const startedAt = Date.now();
+    let message;
+    try {
+      message = JSON.parse(raw.toString());
+      if (message.type === 'frameAck') {
+        frameForwarder.ack(message.frameId);
+        return;
+      }
+      const result = await session.input(message);
+      if (message.actionId && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({type: 'inputAck', actionId: message.actionId, ok: true, elapsedMs: Date.now() - startedAt, ...result}));
+      }
+    } catch (error) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({type: 'inputAck', actionId: message?.actionId, ok: false, message: error.message, elapsedMs: Date.now() - startedAt}));
+      }
+    }
   });
   client.on('close', () => { frameForwarder.close(); session.close().catch(() => {}); });
 });
