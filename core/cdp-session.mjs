@@ -45,6 +45,9 @@ export class CDPSession {
     this.pending = new Map();
     this.onFrame = null;
     this.onClose = null;
+    this.captureMode = 'standard';
+    this.highFrameTimer = null;
+    this.highCaptureInFlight = false;
   }
 
   async #openSocket() {
@@ -75,37 +78,64 @@ export class CDPSession {
     if (!readiness.ready) {
       throw new Error(`The website's own login session is expired. Open a fresh sign-in page, then start Remote Login Relay again.`);
     }
+    await this.call('Page.bringToFront');
+    await this.setCaptureMode('standard', {restart: false});
+    return this.target;
+  }
+
+  async setCaptureMode(mode, {restart = true} = {}) {
+    if (!['standard', 'high'].includes(mode)) throw new Error('Unsupported capture mode.');
+    if (restart && mode === this.captureMode) return;
+    const high = mode === 'high';
+    this.captureMode = mode;
+    if (!high && this.highFrameTimer !== null) {
+      clearTimeout(this.highFrameTimer);
+      this.highFrameTimer = null;
+    }
+    if (restart) {
+      try { await this.call('Page.stopScreencast'); } catch {}
+    }
     if (this.mobile) {
       await this.call('Emulation.setDeviceMetricsOverride', {
         width: 780,
         height: 1400,
-        // Keep the same CSS viewport so websites retain their mobile layout,
-        // but capture at 2x pixels so the phone viewer can zoom without
-        // turning the page into a visibly enlarged thumbnail.
-        deviceScaleFactor: 2,
+        deviceScaleFactor: high ? 2 : 1,
         mobile: true,
         screenWidth: 780,
         screenHeight: 1400,
       });
     }
-    await this.call('Page.bringToFront');
     await this.call('Page.startScreencast', {
-      // Keep the 2x source pixels for phone zoom, but avoid producing a
-      // saturated 60fps stream.  The forwarder also coalesces any frames
-      // generated between sends so input messages stay responsive.
-      format: 'jpeg', quality: 92, maxWidth: 2400, maxHeight: 3200, everyNthFrame: 2,
+      format: 'jpeg',
+      quality: high ? 95 : 82,
+      maxWidth: high ? 2400 : 1200,
+      maxHeight: high ? 3200 : 1800,
+      everyNthFrame: 2,
     });
     // Chrome may not emit a screencast frame until the page changes. Capture
     // the current page once so a freshly opened phone link never waits for a
     // reload or a user action before showing the login screen.
     try {
-      const initial = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: 92, fromSurface: true});
+      const initial = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: high ? 95 : 82, fromSurface: true});
       this.onFrame?.({
         data: initial.data,
         metadata: {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1},
       });
     } catch {}
-    return this.target;
+  }
+
+  #scheduleHighFrame() {
+    if (this.captureMode !== 'high' || this.highFrameTimer !== null || this.highCaptureInFlight) return;
+    this.highFrameTimer = setTimeout(async () => {
+      this.highFrameTimer = null;
+      if (this.captureMode !== 'high' || this.highCaptureInFlight) return;
+      this.highCaptureInFlight = true;
+      try {
+        const frame = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: 95, fromSurface: true});
+        this.onFrame?.({data: frame.data, metadata: {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1}});
+      } catch {}
+      finally { this.highCaptureInFlight = false; }
+    }, 150);
   }
 
   #handleMessage(data) {
@@ -119,8 +149,9 @@ export class CDPSession {
       return;
     }
     if (message.method === 'Page.screencastFrame') {
-      this.onFrame?.(message.params);
       this.call('Page.screencastFrameAck', {sessionId: message.params.sessionId}).catch(() => {});
+      if (this.captureMode === 'high') this.#scheduleHighFrame();
+      else this.onFrame?.(message.params);
     }
   }
 
@@ -174,6 +205,8 @@ export class CDPSession {
       await this.call('Page.reload', {ignoreCache: false});
     } else if (message.type === 'back') {
       await this.call('Runtime.evaluate', {expression: 'history.back()'});
+    } else if (message.type === 'captureMode') {
+      await this.setCaptureMode(message.mode);
     } else {
       throw new Error('Unsupported remote input message.');
     }
@@ -181,6 +214,8 @@ export class CDPSession {
   }
 
   async close() {
+    if (this.highFrameTimer !== null) clearTimeout(this.highFrameTimer);
+    this.highFrameTimer = null;
     try { await this.call('Page.stopScreencast'); } catch {}
     if (this.mobile) {
       try { await this.call('Emulation.clearDeviceMetricsOverride'); } catch {}

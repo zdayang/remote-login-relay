@@ -17,6 +17,20 @@ const waitForTab = async (cdpHttp, chrome) => {
   throw new Error('Timed out waiting for Chrome CDP');
 };
 
+function jpegSize(data) {
+  const bytes = Buffer.from(data, 'base64');
+  for (let offset = 2; offset + 8 < bytes.length;) {
+    if (bytes[offset] !== 0xff) { offset += 1; continue; }
+    const marker = bytes[offset + 1];
+    const length = bytes.readUInt16BE(offset + 2);
+    if ([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker)) {
+      return {height: bytes.readUInt16BE(offset + 5), width: bytes.readUInt16BE(offset + 7)};
+    }
+    offset += 2 + length;
+  }
+  throw new Error('JPEG dimensions not found');
+}
+
 test('shared core controls one real isolated Chrome tab and receives a frame', {timeout:30000}, async (t) => {
   try { await import('node:fs/promises').then(fs=>fs.access(chromeBinary)); }
   catch { t.skip('Google Chrome is not installed'); return; }
@@ -37,6 +51,15 @@ test('shared core controls one real isolated Chrome tab and receives a frame', {
     assert.equal(value.result.value,'local-only-secret');
     const firstFrame=await Promise.race([frame,new Promise((_,reject)=>setTimeout(()=>reject(new Error('No screencast frame received')),3000))]);
     assert.ok(firstFrame.data.length>100);
+    assert.deepEqual(jpegSize(firstFrame.data), {width:780,height:1400});
+    const highFrame = new Promise((resolve) => {
+      cdp.onFrame = (candidate) => {
+        if (jpegSize(candidate.data).width === 1560) resolve(candidate);
+      };
+    });
+    await cdp.input({type:'captureMode',mode:'high'});
+    const enlarged = await Promise.race([highFrame,new Promise((_,reject)=>setTimeout(()=>reject(new Error('No high-resolution frame received')),3000))]);
+    assert.deepEqual(jpegSize(enlarged.data), {width:1560,height:2800});
   } finally {
     await cdp?.close().catch(()=>{}); if(chrome.exitCode===null)chrome.kill('SIGTERM'); await new Promise(resolve=>chrome.once('exit',resolve)); await rm(profile,{recursive:true,force:true});
   }

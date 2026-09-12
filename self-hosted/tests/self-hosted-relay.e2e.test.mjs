@@ -20,6 +20,18 @@ const waitFor = async (check, timeout = 10000) => {
   throw new Error('Timed out waiting for self-hosted relay');
 };
 
+function jpegWidth(data) {
+  const bytes = Buffer.from(data, 'base64');
+  for (let offset = 2; offset + 8 < bytes.length;) {
+    if (bytes[offset] !== 0xff) { offset += 1; continue; }
+    const marker = bytes[offset + 1];
+    const length = bytes.readUInt16BE(offset + 2);
+    if ([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker)) return bytes.readUInt16BE(offset + 7);
+    offset += 2 + length;
+  }
+  throw new Error('JPEG width not found');
+}
+
 test('self-hosted gateway delivers a frame and remote text input', {timeout: 40000}, async (t) => {
   try { await import('node:fs/promises').then((fs) => fs.access(chromeBinary)); }
   catch { t.skip('Google Chrome is not installed'); return; }
@@ -59,17 +71,28 @@ test('self-hosted gateway delivers a frame and remote text input', {timeout: 400
     assert.equal(response.status, 200, errors.join(''));
     socket = new WebSocket(`ws://127.0.0.1:${relayPort}/ws?token=${token}`);
     const messages = [];
-    socket.on('message', (data) => messages.push(JSON.parse(data.toString())));
+    socket.on('message', (data) => {
+      const message = JSON.parse(data.toString());
+      messages.push(message);
+      if (message.type === 'frame') socket.send(JSON.stringify({type: 'frameAck', frameId: message.frameId}));
+    });
     await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
     await waitFor(() => messages.find((message) => message.type === 'attached'));
     const firstFrame = await waitFor(() => messages.find((message) => message.type === 'frame'));
     assert.ok(firstFrame.frameId, 'frames must carry an id for phone-side backpressure');
+    assert.equal(jpegWidth(firstFrame.data), 780, 'the default phone stream should conserve bandwidth');
     const inputStartedAt = Date.now();
     socket.send(JSON.stringify({type: 'text', text: 'from-phone', actionId: 'latency-check'}));
     const inputAck = await waitFor(() => messages.find((message) => message.type === 'inputAck' && message.actionId === 'latency-check'));
     assert.equal(inputAck.ok, true);
     assert.ok(Date.now() - inputStartedAt < 750, `input acknowledgement was too slow: ${Date.now() - inputStartedAt}ms`);
-    socket.send(JSON.stringify({type: 'frameAck', frameId: firstFrame.frameId}));
+    socket.send(JSON.stringify({type: 'captureMode', mode: 'high', actionId: 'high-resolution'}));
+    const highAck = await waitFor(() => messages.find((message) => message.type === 'inputAck' && message.actionId === 'high-resolution'));
+    assert.equal(highAck.ok, true);
+    const highFrame = await waitFor(() => messages.find((message) => message.type === 'frame' && jpegWidth(message.data) === 1560)).catch((error) => {
+      const widths = messages.filter((message) => message.type === 'frame').map((message) => jpegWidth(message.data));
+      throw new Error(`${error.message}; received frame widths: ${widths.join(',')}`);
+    });
     const value = await waitFor(async () => {
       const values = await listChromeTabs(cdpHttp);
       const page = values.find((tab) => tab.id === targetId);

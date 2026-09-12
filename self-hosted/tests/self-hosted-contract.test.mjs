@@ -55,6 +55,9 @@ test('phone UI confirms both painted frames and completed input actions',async()
   assert.match(page,/function sendAction\(/);
   assert.match(page,/function finishAction\(/);
   assert.match(page,/className='tap'/);
+  assert.match(page,/id="zoomIn"/);
+  assert.match(page,/id="zoomOut"/);
+  assert.match(page,/type:'captureMode'/);
 });
 
 test('start delivers the same private URL by email and direct output',async()=>{
