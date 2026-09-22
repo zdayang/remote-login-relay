@@ -119,7 +119,7 @@ export class CDPSession {
       const initial = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: high ? 95 : 82, fromSurface: true});
       this.onFrame?.({
         data: initial.data,
-        metadata: {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1},
+        metadata: await this.captureMetadata(),
       });
     } catch {}
   }
@@ -132,10 +132,29 @@ export class CDPSession {
       this.highCaptureInFlight = true;
       try {
         const frame = await this.call('Page.captureScreenshot', {format: 'jpeg', quality: 95, fromSurface: true});
-        this.onFrame?.({data: frame.data, metadata: {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1}});
+        this.onFrame?.({data: frame.data, metadata: await this.captureMetadata()});
       } catch {}
       finally { this.highCaptureInFlight = false; }
     }, 150);
+  }
+
+  async captureMetadata() {
+    const fallback = {deviceWidth: 780, deviceHeight: 1400, pageScaleFactor: 1};
+    try {
+      const metrics = await this.call('Page.getLayoutMetrics');
+      const viewport = metrics.cssVisualViewport || metrics.visualViewport;
+      const width = Number(viewport?.clientWidth);
+      const height = Number(viewport?.clientHeight);
+      const scale = Number(viewport?.scale);
+      if (!(width > 0 && height > 0 && scale > 0)) return fallback;
+      return {
+        deviceWidth: Math.round(width * scale),
+        deviceHeight: Math.round(height * scale),
+        pageScaleFactor: scale,
+      };
+    } catch {
+      return fallback;
+    }
   }
 
   #handleMessage(data) {
